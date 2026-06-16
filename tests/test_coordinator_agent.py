@@ -10,6 +10,7 @@ from agents.filings_agent.models import FilingAgentResponse, FilingComparison, F
 from agents.financial_agent.models import CompanyInfo, FinancialAnalysis, FinancialMetrics
 from agents.news_agent.models import NewsAgentResponse, NewsArticle, NewsSummary
 from agents.peer_agent.models import PeerComparisonResponse, PeerComparisonTable, PeerMetrics
+from agents.thesis_agent.models import InvestmentReport, ThesisInput
 
 
 class FakeFinancialAgent:
@@ -118,10 +119,33 @@ class FakePeerAgent:
         )
 
 
+class FakeThesisAgent:
+    """Thesis agent fake for coordinator tests."""
+
+    def __init__(self, should_fail: bool = False) -> None:
+        """Create the fake thesis agent."""
+        self.should_fail = should_fail
+
+    def generate_report(self, thesis_input: ThesisInput) -> InvestmentReport:
+        """Return a fixed investment report or raise."""
+        if self.should_fail:
+            raise RuntimeError("thesis failed")
+        return InvestmentReport(
+            executive_summary="Fake Executive Summary",
+            bull_case="Fake Bull Case",
+            bear_case="Fake Bear Case",
+            key_risks="Fake Key Risks",
+            peer_positioning="Fake Peer Positioning",
+            investment_thesis="Fake Investment Thesis",
+            conclusion="Fake Conclusion",
+        )
+
+
 def _coordinator(
     financial_agent: FakeFinancialAgent | None = None,
     news_agent: FakeNewsAgent | None = None,
     peer_agent: FakePeerAgent | None = None,
+    thesis_agent: FakeThesisAgent | None = None,
 ) -> CoordinatorAgent:
     """Build a coordinator with fake specialist agents."""
     return CoordinatorAgent(
@@ -129,6 +153,7 @@ def _coordinator(
         news_agent=news_agent or FakeNewsAgent(),
         filings_agent=FakeFilingsAgent(),
         peer_agent=peer_agent or FakePeerAgent(),
+        thesis_agent=thesis_agent or FakeThesisAgent(),
     )
 
 
@@ -147,6 +172,7 @@ def test_coordinator_successful_orchestration() -> None:
     assert response.consolidated_data.filing_analysis is not None
     assert response.consolidated_data.filing_comparison is not None
     assert response.consolidated_data.peer_comparison is not None
+    assert response.investment_report is not None
     assert response.failed_agents == []
     assert set(response.completed_agents) == {
         "financial_agent",
@@ -154,12 +180,13 @@ def test_coordinator_successful_orchestration() -> None:
         "filings_agent",
         "filings_comparison",
         "peer_agent",
+        "thesis_agent",
     }
 
 
 def test_coordinator_continues_after_partial_agent_failures() -> None:
     """CoordinatorAgent should preserve successful outputs when one agent fails."""
-    response = _coordinator(news_agent=FakeNewsAgent(should_fail=True)).generate_report("INFY.NS")
+    response = _coordinator(news_agent=FakeNewsAgent(should_fail=True)).generate_report("INFY.NS", include_thesis=False)
 
     assert response.consolidated_data.financial_analysis is not None
     assert response.consolidated_data.news_analysis is None
@@ -201,6 +228,7 @@ def test_coordinator_can_skip_optional_agents() -> None:
         include_news=False,
         include_filings=False,
         include_peers=False,
+        include_thesis=False,
     )
 
     assert response.consolidated_data.financial_analysis is not None
@@ -208,3 +236,12 @@ def test_coordinator_can_skip_optional_agents() -> None:
     assert response.consolidated_data.filing_analysis is None
     assert response.consolidated_data.peer_comparison is None
     assert response.completed_agents == ["financial_agent"]
+
+
+def test_coordinator_thesis_agent_failure() -> None:
+    """CoordinatorAgent should handle thesis agent failures gracefully."""
+    response = _coordinator(thesis_agent=FakeThesisAgent(should_fail=True)).generate_report("INFY.NS")
+
+    assert response.consolidated_data.financial_analysis is not None
+    assert response.investment_report is None
+    assert "thesis_agent" in response.failed_agents

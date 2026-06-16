@@ -145,6 +145,30 @@ def main():
                 for lim in news.summary.limitations:
                     print(f"  • {lim}")
         print(f"\nArticles Analyzed: {len(news.articles)}")
+    if response.investment_report:
+        report = response.investment_report
 
+        print_section("Investment Research Report")
+
+        print("\nExecutive Summary:")
+        print(report.executive_summary)
+
+        print("\nBull Case:")
+        print(report.bull_case)
+
+        print("\nBear Case:")
+        print(report.bear_case)
+
+        print("\nKey Risks:")
+        print(report.key_risks)
+
+        print("\nPeer Positioning:")
+        print(report.peer_positioning)
+
+        print("\nInvestment Thesis:")
+        print(report.investment_thesis)
+
+        print("\nConclusion:")
+        print(report.conclusion)
 if __name__ == "__main__":
     main()

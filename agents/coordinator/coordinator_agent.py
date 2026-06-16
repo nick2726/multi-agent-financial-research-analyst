@@ -1,3 +1,122 @@
+"""Coordinator Agent for multi-agent financial research workflows."""
+
+from __future__ import annotations
+
+import logging
+from collections.abc import Callable, Sequence
+from datetime import UTC, datetime
+from pathlib import Path
+from typing import Any, Optional, Protocol, TypeVar
+
+from agents.coordinator.models import (
+    AgentExecutionMetadata,
+    ConsolidatedResearchData,
+    CoordinatorResponse,
+    ResearchRequest,
+)
+from agents.filings_agent.filings_agent import FilingsAgent
+from agents.filings_agent.models import FilingAgentResponse, FilingComparison
+from agents.financial_agent.financial_agent import FinancialDataAgent
+from agents.financial_agent.models import FinancialAnalysis
+from agents.news_agent.models import NewsAgentResponse
+from agents.news_agent.news_agent import NewsAgent
+from agents.peer_agent.models import PeerComparisonResponse
+from agents.peer_agent.peer_agent import PeerComparisonAgent
+from agents.thesis_agent.models import (
+    InvestmentReport,
+    ThesisInput,
+)
+from agents.thesis_agent.thesis_agent import ThesisWriterAgent
+
+
+
+logger = logging.getLogger(__name__)
+T = TypeVar("T")
+
+
+class FinancialAgentProtocol(Protocol):
+    """Protocol for financial data agents."""
+
+    def analyze_company(self, ticker: str) -> FinancialAnalysis:
+        """Analyze a company ticker."""
+
+
+class NewsAgentProtocol(Protocol):
+    """Protocol for company news agents."""
+
+    def analyze_news(self, company_name: str) -> NewsAgentResponse:
+        """Analyze company news."""
+
+
+class FilingsAgentProtocol(Protocol):
+    """Protocol for filing analysis agents."""
+
+    def analyze_filing(self, filing_path: str | Path) -> FilingAgentResponse:
+        """Analyze a local filing."""
+
+    def compare_filings(
+        self,
+        previous_filing_path: str | Path,
+        current_filing_path: str | Path,
+    ) -> FilingComparison:
+        """Compare two local filings."""
+
+
+class PeerAgentProtocol(Protocol):
+    """Protocol for peer comparison agents."""
+
+    def compare_peers(
+        self,
+        target_ticker: str,
+        peer_tickers: Sequence[str] | None = None,
+    ) -> PeerComparisonResponse:
+        """Compare a target company with peers."""
+
+class ThesisAgentProtocol(Protocol):
+    """Protocol for thesis writer agents."""
+
+    def generate_report(
+        self,
+        thesis_input: ThesisInput,
+    ) -> InvestmentReport:
+        """Generate an investment report."""
+
+
+class CoordinatorAgent:
+    """Primary orchestration entrypoint for financial research workflows."""
+
+    def __init__(
+        self,
+        financial_agent: FinancialAgentProtocol | None = None,
+        news_agent: NewsAgentProtocol | None = None,
+        filings_agent: FilingsAgentProtocol | None = None,
+        peer_agent: PeerAgentProtocol | None = None,
+        thesis_agent: ThesisAgentProtocol | None = None,
+    ) -> None:
+        """Initialize the coordinator with injectable specialist agents."""
+        self._financial_agent = financial_agent or FinancialDataAgent()
+        self._news_agent = news_agent or NewsAgent()
+        self._filings_agent = filings_agent or FilingsAgent()
+        self._peer_agent = peer_agent or PeerComparisonAgent()
+        self._thesis_agent = thesis_agent or ThesisWriterAgent()
+
+    def generate_report(
+        self,
+        ticker: str,
+        company_name: Optional[str] = None,
+        filing_path: str | Path | None = None,
+        previous_filing_path: str | Path | None = None,
+        peer_tickers: Sequence[str] | None = None,
+        include_news: bool = True,
+        include_filings: bool = True,
+        include_peers: bool = True,
+        include_thesis: bool = True,
+    ) -> CoordinatorResponse:
+        """Run specialist agents and aggregate research outputs.
+
+        The method continues after individual specialist failures and records
+        each outcome in execution metadata.
+        """
         request = ResearchRequest(
             ticker=ticker,
             company_name=company_name,
@@ -7,6 +126,7 @@
             include_news=include_news,
             include_filings=include_filings,
             include_peers=include_peers,
+            include_thesis=include_thesis,
         )
         logger.info("CoordinatorAgent started request=%s", request.model_dump(mode="json"))
 
@@ -63,12 +183,59 @@
                 failed_agents,
             )
 
+        investment_report = None
+
+        if request.include_thesis:
+            try:
+                thesis_input = ThesisInput(
+                    company_name=effective_company_name,
+                    financial_analysis=(
+                        consolidated_data.financial_analysis.model_dump_json(indent=2)
+                        if consolidated_data.financial_analysis
+                        else "No financial analysis available."
+                    ),
+                    news_analysis=(
+                        consolidated_data.news_analysis.model_dump_json(indent=2)
+                        if consolidated_data.news_analysis
+                        else None
+                    ),
+                    filings_analysis=(
+                        consolidated_data.filing_analysis.model_dump_json(indent=2)
+                        if consolidated_data.filing_analysis
+                        else None
+                    ),
+                    peer_analysis=(
+                        consolidated_data.peer_comparison.model_dump_json(indent=2)
+                        if consolidated_data.peer_comparison
+                        else None
+                    ),
+                )
+
+                investment_report = (
+                    self._thesis_agent.generate_report(
+                        thesis_input
+                    )
+                )
+
+                completed_agents.append(
+                    "thesis_agent"
+                )
+
+            except Exception:
+                failed_agents.append(
+                    "thesis_agent"
+                )
+                logger.exception(
+                    "CoordinatorAgent thesis generation failed."
+                )
+
         response = CoordinatorResponse(
             request=request,
             consolidated_data=consolidated_data,
             execution_metadata=metadata,
             completed_agents=completed_agents,
             failed_agents=failed_agents,
+            investment_report=investment_report,
         )
         logger.info(
             "CoordinatorAgent completed completed_agents=%s failed_agents=%s",

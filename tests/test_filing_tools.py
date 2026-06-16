@@ -170,6 +170,7 @@ def test_compare_filings_detects_major_changes(
 def test_gemini_filing_summarizer_requires_api_key(monkeypatch: pytest.MonkeyPatch) -> None:
     """GeminiFilingSummarizer should fail fast without GOOGLE_API_KEY."""
     monkeypatch.delenv("GOOGLE_API_KEY", raising=False)
+    monkeypatch.setattr("tools.filing_tools.load_dotenv", lambda *args, **kwargs: None)
     summarizer = GeminiFilingSummarizer(api_key=None)
     sections = [
         FilingSection(
