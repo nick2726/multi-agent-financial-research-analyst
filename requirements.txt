@@ -1,0 +1,13 @@
+fastapi
+uvicorn[standard]
+streamlit
+pydantic
+python-dotenv
+yfinance
+requests
+beautifulsoup4
+pdfplumber
+pytest
+pytest-mock
+google-adk
+google-generativeai
