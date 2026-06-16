@@ -12,13 +12,49 @@ from tools.financial_tools import FinancialDataError, FinancialDataTool
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_INDIAN_IT_PEERS: Mapping[str, tuple[str, ...]] = {
-    "TCS.NS": ("INFY.NS", "WIPRO.NS", "HCLTECH.NS", "TECHM.NS", "LTIM.NS"),
-    "INFY.NS": ("TCS.NS", "WIPRO.NS", "HCLTECH.NS", "TECHM.NS", "LTIM.NS"),
-    "WIPRO.NS": ("TCS.NS", "INFY.NS", "HCLTECH.NS", "TECHM.NS", "LTIM.NS"),
-    "HCLTECH.NS": ("TCS.NS", "INFY.NS", "WIPRO.NS", "TECHM.NS", "LTIM.NS"),
-    "TECHM.NS": ("TCS.NS", "INFY.NS", "WIPRO.NS", "HCLTECH.NS", "LTIM.NS"),
-    "LTIM.NS": ("TCS.NS", "INFY.NS", "WIPRO.NS", "HCLTECH.NS", "TECHM.NS"),
+DEFAULT_PEER_MAP = {
+    "TCS.NS": (
+        "INFY.NS",
+        "WIPRO.NS",
+        "HCLTECH.NS",
+        "TECHM.NS",
+        "LTIMINDTREE.NS",
+    ),
+    "INFY.NS": (
+        "TCS.NS",
+        "WIPRO.NS",
+        "HCLTECH.NS",
+        "TECHM.NS",
+        "LTIMINDTREE.NS",
+    ),
+    "WIPRO.NS": (
+        "TCS.NS",
+        "INFY.NS",
+        "HCLTECH.NS",
+        "TECHM.NS",
+        "LTIMINDTREE.NS",
+    ),
+    "HCLTECH.NS": (
+        "TCS.NS",
+        "INFY.NS",
+        "WIPRO.NS",
+        "TECHM.NS",
+        "LTIMINDTREE.NS",
+    ),
+    "TECHM.NS": (
+        "TCS.NS",
+        "INFY.NS",
+        "WIPRO.NS",
+        "HCLTECH.NS",
+        "LTIMINDTREE.NS",
+    ),
+    "LTIMINDTREE.NS": (
+        "TCS.NS",
+        "INFY.NS",
+        "WIPRO.NS",
+        "HCLTECH.NS",
+        "TECHM.NS",
+    ),
 }
 
 METRIC_DIRECTIONS: Mapping[str, bool] = {
