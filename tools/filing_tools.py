@@ -10,6 +10,7 @@ import json
 import logging
 import os
 import re
+import google.generativeai as genai
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Optional, Protocol
@@ -304,17 +305,29 @@ class ExtractiveFilingSummarizer:
 class GeminiFilingSummarizer:
     """Summarize filing sections and comparisons using Gemini."""
 
-    def __init__(self, api_key: Optional[str] = None, model_name: str = "gemini-2.5-flash") -> None:
+    def __init__(
+        self,
+        api_key: Optional[str] = None,
+        model_name: str = "gemini-2.5-flash",
+    ) -> None:
         """Initialize the summarizer with Gemini configuration."""
-        load_dotenv()
-        self._api_key = api_key or os.getenv("GOOGLE_API_KEY")
+        
+
+        self._api_key = (
+            api_key
+            or os.getenv("GEMINI_API_KEY")
+            or os.getenv("GOOGLE_API_KEY")
+        )
+
         self._model_name = model_name
 
     def summarize(self, filing_path: Path, sections: Sequence[FilingSection]) -> FilingSummary:
         """Generate a concise filing summary from extracted sections."""
         if not self._api_key:
             logger.warning("GOOGLE_API_KEY is missing for filing summarization")
-            raise FilingSummarizationError("GOOGLE_API_KEY must be set in .env.")
+            raise FilingSummarizationError(
+    "GEMINI_API_KEY or GOOGLE_API_KEY must be set in .env."
+)
         if not sections:
             raise FilingSummarizationError("At least one filing section is required.")
         prompt = self._build_filing_prompt(filing_path, sections)
