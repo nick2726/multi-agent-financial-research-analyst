@@ -115,6 +115,7 @@ def test_identify_peers_supports_default_indian_it_universe() -> None:
 
     assert "TCS.NS" in peers
     assert "WIPRO.NS" in peers
+    assert "LTIMINDTREE.NS" in peers
     assert "INFY.NS" not in peers
 
 

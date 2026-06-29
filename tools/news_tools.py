@@ -9,9 +9,12 @@ from __future__ import annotations
 import json
 import logging
 import os
+import xml.etree.ElementTree as ET
 from collections.abc import Mapping, Sequence
 from datetime import UTC, date, datetime, timedelta
+from email.utils import parsedate_to_datetime
 from typing import Any, Optional, Protocol
+from urllib.parse import quote_plus
 
 import requests
 from dotenv import load_dotenv
@@ -21,6 +24,7 @@ from agents.news_agent.models import NewsArticle, NewsSummary
 logger = logging.getLogger(__name__)
 
 NEWS_API_ENDPOINT = "https://newsapi.org/v2/everything"
+GOOGLE_NEWS_RSS_ENDPOINT = "https://news.google.com/rss/search"
 MATERIAL_EVENT_KEYWORDS = (
     "acquisition",
     "acquires",
@@ -41,6 +45,10 @@ MATERIAL_EVENT_KEYWORDS = (
     "settlement",
     "guidance",
     "investment",
+    "order win",
+    "dividend",
+    "buyback",
+    "rating",
 )
 
 
@@ -80,7 +88,7 @@ class NewsSummarizer(Protocol):
 
 
 class NewsApiTool:
-    """Retrieve, deduplicate, and filter company news from NewsAPI."""
+    """Retrieve, deduplicate, and filter company news from NewsAPI or public RSS."""
 
     def __init__(
         self,
@@ -88,7 +96,7 @@ class NewsApiTool:
         session: requests.Session | None = None,
         endpoint: str = NEWS_API_ENDPOINT,
     ) -> None:
-        """Initialize the NewsAPI tool with injectable HTTP dependencies."""
+        """Initialize the news tool with injectable HTTP dependencies."""
         load_dotenv()
         self._api_key = api_key or os.getenv("NEWS_API_KEY")
         self._session = session or requests.Session()
@@ -101,71 +109,57 @@ class NewsApiTool:
         to_date: date | None = None,
         limit: int = 20,
     ) -> list[NewsArticle]:
-        """Fetch recent company news from NewsAPI.
+        """Fetch recent company news.
 
-        Args:
-            company_name: Company name or ticker to search for.
-            from_date: Inclusive start date. Defaults to 30 days before to_date.
-            to_date: Inclusive end date. Defaults to today in UTC.
-            limit: Maximum number of filtered articles to return.
-
-        Raises:
-            InvalidCompanyNameError: If company_name is blank.
-            MissingNewsApiKeyError: If NEWS_API_KEY is unavailable.
-            NewsApiRateLimitError: If NewsAPI returns HTTP 429.
-            NewsApiError: If NewsAPI fails or returns an error payload.
-            EmptyNewsResponseError: If no useful articles remain after filtering.
+        NewsAPI is used when configured. Without a key, the tool falls back to
+        Google News RSS so a local judge demo still has live news capability.
         """
         normalized_company_name = self._validate_company_name(company_name)
-        self._validate_api_key()
         normalized_to_date = to_date or datetime.now(UTC).date()
         normalized_from_date = from_date or normalized_to_date - timedelta(days=30)
         normalized_limit = self._validate_limit(limit)
 
         logger.info(
-            "Fetching news company=%s from_date=%s to_date=%s limit=%s",
+            "Fetching news company=%s from_date=%s to_date=%s limit=%s source=%s",
             normalized_company_name,
             normalized_from_date,
             normalized_to_date,
             normalized_limit,
+            "newsapi" if self._api_key else "google_news_rss",
         )
-        payload = self._request_newsapi(
-            normalized_company_name,
-            normalized_from_date,
-            normalized_to_date,
-            normalized_limit,
-        )
-        raw_articles = payload.get("articles", [])
-        if not isinstance(raw_articles, list):
-            logger.warning("NewsAPI returned non-list articles payload")
-            raise NewsApiError("NewsAPI returned an invalid articles payload.")
 
-        articles = self._normalize_articles(raw_articles)
+        if self._api_key:
+            payload = self._request_newsapi(
+                normalized_company_name,
+                normalized_from_date,
+                normalized_to_date,
+                normalized_limit,
+            )
+            raw_articles = payload.get("articles", [])
+            if not isinstance(raw_articles, list):
+                logger.warning("NewsAPI returned non-list articles payload")
+                raise NewsApiError("NewsAPI returned an invalid articles payload.")
+            articles = self._normalize_newsapi_articles(raw_articles)
+        else:
+            articles = self._request_google_news_rss(
+                normalized_company_name,
+                normalized_from_date,
+                normalized_to_date,
+                normalized_limit,
+            )
+
         articles = self._deduplicate_articles(articles)
         articles = self._filter_relevant_articles(normalized_company_name, articles)
         articles = articles[:normalized_limit]
 
         if not articles:
             logger.warning("No useful news articles found company=%s", normalized_company_name)
-            raise EmptyNewsResponseError(
-                f"No useful news articles found for '{normalized_company_name}'."
-            )
+            raise EmptyNewsResponseError(f"No useful news articles found for '{normalized_company_name}'.")
 
-        logger.info(
-            "Fetched news company=%s raw_count=%s filtered_count=%s",
-            normalized_company_name,
-            len(raw_articles),
-            len(articles),
-        )
+        logger.info("Fetched news company=%s filtered_count=%s", normalized_company_name, len(articles))
         return articles
 
-    def _request_newsapi(
-        self,
-        company_name: str,
-        from_date: date,
-        to_date: date,
-        limit: int,
-    ) -> Mapping[str, Any]:
+    def _request_newsapi(self, company_name: str, from_date: date, to_date: date, limit: int) -> Mapping[str, Any]:
         """Execute the NewsAPI request and validate the response."""
         params = {
             "q": company_name,
@@ -185,13 +179,8 @@ class NewsApiTool:
         if response.status_code == 429:
             logger.warning("NewsAPI rate limit reached company=%s", company_name)
             raise NewsApiRateLimitError("NewsAPI rate limit reached.")
-
         if response.status_code >= 400:
-            logger.warning(
-                "NewsAPI HTTP error company=%s status_code=%s",
-                company_name,
-                response.status_code,
-            )
+            logger.warning("NewsAPI HTTP error company=%s status_code=%s", company_name, response.status_code)
             raise NewsApiError(f"NewsAPI returned HTTP {response.status_code}.")
 
         try:
@@ -204,10 +193,55 @@ class NewsApiTool:
             message = payload.get("message", "NewsAPI returned an error response.")
             logger.warning("NewsAPI error company=%s message=%s", company_name, message)
             raise NewsApiError(str(message))
-
         return payload
 
-    def _normalize_articles(self, raw_articles: Sequence[Mapping[str, Any]]) -> list[NewsArticle]:
+    def _request_google_news_rss(
+        self,
+        company_name: str,
+        from_date: date,
+        to_date: date,
+        limit: int,
+    ) -> list[NewsArticle]:
+        """Fetch news from Google News RSS without requiring credentials."""
+        query = quote_plus(f'"{company_name}" when:{max(1, (to_date - from_date).days)}d')
+        url = f"{GOOGLE_NEWS_RSS_ENDPOINT}?q={query}&hl=en-IN&gl=IN&ceid=IN:en"
+        try:
+            response = self._session.get(url, timeout=15)
+            response.raise_for_status()
+        except requests.RequestException as exc:
+            logger.exception("Google News RSS request failed company=%s", company_name)
+            raise NewsApiError("Unable to reach Google News RSS fallback.") from exc
+
+        try:
+            root = ET.fromstring(response.text)
+        except ET.ParseError as exc:
+            logger.exception("Google News RSS returned invalid XML company=%s", company_name)
+            raise NewsApiError("Google News RSS returned invalid XML.") from exc
+
+        articles: list[NewsArticle] = []
+        for item in root.findall("./channel/item")[: min(limit * 2, 50)]:
+            title = (item.findtext("title") or "").strip()
+            link = (item.findtext("link") or "").strip()
+            source = (item.findtext("source") or "Google News").strip()
+            pub_date = self._parse_rss_date(item.findtext("pubDate"))
+            description = self._strip_html(item.findtext("description") or title)
+            if not title or not link:
+                continue
+            try:
+                articles.append(
+                    NewsArticle(
+                        title=title,
+                        source=source,
+                        publication_date=pub_date,
+                        description=description,
+                        url=link,
+                    )
+                )
+            except Exception:
+                logger.debug("Skipping malformed RSS article", exc_info=True)
+        return articles
+
+    def _normalize_newsapi_articles(self, raw_articles: Sequence[Mapping[str, Any]]) -> list[NewsArticle]:
         """Convert NewsAPI article dictionaries into validated NewsArticle models."""
         normalized_articles: list[NewsArticle] = []
         for raw_article in raw_articles:
@@ -243,11 +277,7 @@ class NewsApiTool:
             unique_articles.append(article)
         return unique_articles
 
-    def _filter_relevant_articles(
-        self,
-        company_name: str,
-        articles: Sequence[NewsArticle],
-    ) -> list[NewsArticle]:
+    def _filter_relevant_articles(self, company_name: str, articles: Sequence[NewsArticle]) -> list[NewsArticle]:
         """Filter articles that lack company relevance or useful information."""
         company_tokens = {
             token.lower()
@@ -259,7 +289,7 @@ class NewsApiTool:
             combined_text = f"{article.title} {article.description or ''}".lower()
             has_company_match = any(token in combined_text for token in company_tokens)
             has_material_keyword = any(keyword in combined_text for keyword in MATERIAL_EVENT_KEYWORDS)
-            has_enough_information = len(combined_text.split()) >= 8
+            has_enough_information = len(combined_text.split()) >= 5
             if has_enough_information and (has_company_match or has_material_keyword):
                 relevant_articles.append(article)
         return relevant_articles
@@ -290,15 +320,44 @@ class NewsApiTool:
         normalized_value = str(value).replace("Z", "+00:00")
         return datetime.fromisoformat(normalized_value)
 
+    def _parse_rss_date(self, value: str | None) -> datetime:
+        if not value:
+            return datetime.now(UTC)
+        parsed = parsedate_to_datetime(value)
+        return parsed if parsed.tzinfo else parsed.replace(tzinfo=UTC)
+
+    def _strip_html(self, value: str) -> str:
+        return " ".join(value.replace("<ol>", " ").replace("</ol>", " ").split())
+
+
+class ExtractiveNewsSummarizer:
+    """Fast local summarizer for no-key demos."""
+
+    def summarize(self, company_name: str, articles: Sequence[NewsArticle]) -> NewsSummary:
+        if not articles:
+            raise GeminiSummarizationError("At least one article is required for summarization.")
+        sorted_articles = sorted(articles, key=self._materiality_score, reverse=True)
+        top_articles = sorted_articles[:5]
+        material_events = [f"{article.title} ({article.source})" for article in top_articles[:4]]
+        summary = (
+            f"Recent coverage for {company_name} includes {len(articles)} relevant articles. "
+            f"Most material headlines: " + "; ".join(material_events[:3]) + "."
+        )
+        return NewsSummary(
+            summary=summary,
+            material_events=material_events,
+            limitations=["Generated with local extractive summarization; verify full articles before investment use."],
+        )
+
+    def _materiality_score(self, article: NewsArticle) -> int:
+        combined = f"{article.title} {article.description or ''}".lower()
+        return sum(2 for keyword in MATERIAL_EVENT_KEYWORDS if keyword in combined) + len(combined.split()) // 20
+
 
 class GeminiNewsSummarizer:
     """Summarize material news developments using Gemini."""
 
-    def __init__(
-        self,
-        api_key: Optional[str] = None,
-        model_name: str = "gemini-2.5-flash",
-    ) -> None:
+    def __init__(self, api_key: Optional[str] = None, model_name: str = "gemini-2.5-flash") -> None:
         """Initialize the Gemini summarizer with environment-based configuration."""
         load_dotenv()
         self._api_key = api_key or os.getenv("GOOGLE_API_KEY")
@@ -326,7 +385,6 @@ class GeminiNewsSummarizer:
         if not text or not text.strip():
             logger.warning("Gemini returned an empty summary company=%s", company_name)
             raise GeminiSummarizationError("Gemini returned an empty summary.")
-
         return self._parse_summary_text(text)
 
     def _build_prompt(self, company_name: str, articles: Sequence[NewsArticle]) -> str:

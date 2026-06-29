@@ -1,99 +1,134 @@
 # Multi-Agent Financial Research Analyst
 
-Placement-grade capstone project for building a production-minded financial research assistant with multi-agent orchestration, tool integration, evaluation, and cloud deployment.
+Production-minded capstone project for equity-research automation using specialist agents and a fault-tolerant coordinator.
 
-## Project Goal
+# Current Output Status
 
-This project will evolve into a Multi-Agent Financial Research Analyst using Google Agent Development Kit, Gemini, FastAPI, Streamlit, yfinance, NewsAPI, filing parsers, pytest, Docker, and Google Cloud Run.
+### INVESTMENT THESIS REPORT 
 
-The implementation is intentionally incremental. Each milestone adds only the files and behavior needed for that stage so the architecture stays explainable in interviews.
+Executive Summary:
+Infosys Limited was analyzed using the available financial, news, filings, and peer-comparison context. The strongest observable positives are Revenue growth is positive at 0.04570213207449292. and Operating profitability is visible with operating margin of 0.20928.. The main cautions are Valuation needs scrutiny because the reported P/E ratio is 13.621074..
 
-## Milestone Roadmap
+Bull Case:
+- Revenue growth is positive at 0.04570213207449292.
+- Operating profitability is visible with operating margin of 0.20928.
+- Return on equity is reported at 0.31439, indicating shareholder-return efficiency.
 
-1. Environment setup
-2. Financial Data Agent
-3. News Agent
-4. Filings Agent
-5. Peer Comparison Agent
-6. Coordinator Agent
-7. Thesis Writer Agent
-8. Google ADK integration
-9. Session persistence
-10. Evaluation framework
-11. Dockerization
-12. Cloud Run deployment
-13. Observability
+Bear Case:
+- Valuation needs scrutiny because the reported P/E ratio is 13.621074.
 
-## Current Milestone
+Key Risks:
+- Market-data and news APIs can be incomplete or delayed.
+- The model uses supplied evidence only and does not replace analyst verification.
+- Macroeconomic, currency, regulatory, and sector-cycle risks may affect the outcome.
 
-Milestone 1 sets up the Windows development environment:
+Peer Positioning:
+Target: INFY.NS
+Peer universe: TCS.NS, WIPRO.NS, HCLTECH.NS, TECHM.NS, LTIMINDTREE.NS
+Comparable companies with data: 5
+Relative valuation should be interpreted with sector, scale, and profitability differences in mind.
 
-- Python 3.11 virtual environment
-- Git repository
-- VS Code interpreter configuration
-- Dependency manifest
-- Secret-safe environment template
+Investment Thesis:
+A constructive view is justified only if the company sustains growth, margins, and execution quality relative to peers. A neutral or cautious stance is more appropriate if valuation is demanding, key data is missing, or recent filings/news point to rising operational or regulatory risk.
 
-## Local Setup
+Conclusion:
+Overall, the thesis should be treated as research support rather than a buy/sell call. The next diligence step is to validate the agent output against the latest exchange filings, management commentary, and analyst consensus before making an investment decision.
 
-From PowerShell:
 
-```powershell
-cd "D:\Projects\multi-agent-financial-research-analyst"
-.\venv\Scripts\Activate.ps1
-python --version
-pip install -r requirements.txt
-pytest
-```
-
-Expected Python version:
+## Architecture
 
 ```text
-Python 3.11.x
+User Request
+  |
+  v
+Coordinator Agent
+  |
+  +-- Financial Agent (fundamentals)
+  +-- News Agent (news + summarization)
+  +-- Filings Agent (filing analysis/comparison)
+  +-- Peer Agent (benchmarking)
+  |
+  v
+Thesis Writer Agent (final investment report)
 ```
 
-## Environment Variables
+## ADK Integration Strategy
 
-Create a local `.env` file from `.env.example`:
+The repository follows an incremental ADK migration pattern:
+
+- Existing specialist agents remain unchanged.
+- ADK wrappers in `adk/` expose those agents as reusable tools.
+- ADK coordinator wrapper persists run history in local sessions.
+- Migration is additive and does not break current custom orchestration.
+
+### ADK Package Structure
+
+```text
+adk/
+  agents/
+    coordinator_agent.py
+  sessions/
+    session_store.py
+  tools/
+    specialist_tools.py
+  main.py
+```
+
+## Quickstart
+
+1. Install dependencies:
+
+```powershell
+pip install -r requirements.txt
+```
+
+2. Create local environment file and add secrets:
 
 ```powershell
 Copy-Item .env.example .env
 ```
 
-Then add your own API keys locally. Do not commit `.env`.
+3. Run standard coordinator mode:
 
-## Interview Notes
+```powershell
+python run_analyst.py INFY.NS --no-news
+```
 
-### How this milestone works
+4. Run with filings:
 
-The project uses a local Python virtual environment to isolate dependencies from the system Python installation. Git tracks source files and configuration templates, while local secrets and the virtual environment stay untracked.
+```powershell
+python run_analyst.py INFY.NS --filing-path data/filings/INFY_2025.pdf --previous-filing-path data/filings/INFY_2024.pdf
+```
 
-### Why this design was chosen
+5. Run ADK wrapper mode:
 
-Python 3.11 is a stable production choice with broad library support. A simple `venv + pip` setup is easy to explain, easy to reproduce, and appropriate for a placement-focused portfolio project.
+```powershell
+python run_analyst.py INFY.NS --use-adk --session-id demo-session-1
+```
 
-### Alternatives
+## CLI Options
 
-- Conda: useful for data science stacks, but heavier than needed here.
-- Poetry or uv: stronger dependency workflows, but unnecessary for the first milestone.
-- Docker-first setup: valuable later, but premature before the application architecture exists.
+- `ticker`: target ticker (default `MSFT`)
+- `--company-name`: optional explicit company name
+- `--filing-path`: current filing PDF path
+- `--previous-filing-path`: previous filing PDF path
+- `--peer-tickers`: explicit peer universe
+- `--no-news`: skip News Agent
+- `--no-peers`: skip Peer Agent
+- `--skip-thesis`: skip Thesis Writer Agent
+- `--use-adk`: run through ADK wrapper coordinator
+- `--session-id`: ADK session identifier
 
-### Limitations
+## Testing
 
-- Dependency versions are not pinned yet.
-- CI is not configured yet.
-- No agents or application entrypoints are implemented in Milestone 1.
+```powershell
+pytest tests/test_coordinator_agent.py tests/test_peer_tools.py tests/test_adk_coordinator.py
+```
 
-### Likely interview questions
+## Design Principles
 
-**Why use a virtual environment?**  
-To isolate project dependencies and avoid conflicts with system-wide packages.
-
-**Why Python 3.11?**  
-It balances modern language features with strong compatibility across AI, backend, and cloud libraries.
-
-**Why keep secrets in `.env`?**  
-It separates configuration from code and prevents accidental credential leaks in Git.
-
-**Why not build all agents immediately?**  
-Incremental implementation keeps the system easier to test, explain, and debug.
+- Separation of concerns per agent
+- Dependency injection for all specialist dependencies
+- Structured outputs via Pydantic models
+- Fault-tolerant coordinator execution
+- Backward-compatible migration path toward full ADK runtime

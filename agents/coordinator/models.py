@@ -12,6 +12,7 @@ from agents.filings_agent.models import FilingAgentResponse, FilingComparison
 from agents.financial_agent.models import FinancialAnalysis
 from agents.news_agent.models import NewsAgentResponse
 from agents.peer_agent.models import PeerComparisonResponse
+from agents.thesis_agent.models import InvestmentReport
 
 
 class ResearchRequest(BaseModel):
@@ -25,6 +26,7 @@ class ResearchRequest(BaseModel):
     include_news: bool = True
     include_filings: bool = True
     include_peers: bool = True
+    include_thesis: bool = True
 
     @field_validator("ticker")
     @classmethod
@@ -62,6 +64,7 @@ class ConsolidatedResearchData(BaseModel):
     filing_analysis: Optional[FilingAgentResponse] = None
     filing_comparison: Optional[FilingComparison] = None
     peer_comparison: Optional[PeerComparisonResponse] = None
+    investment_report: Optional[InvestmentReport] = None
 
 
 class CoordinatorResponse(BaseModel):
@@ -82,4 +85,4 @@ class CoordinatorResponse(BaseModel):
 
     def to_thesis_input(self) -> dict[str, Any]:
         """Return a serializable payload for the future Thesis Writer Agent."""
-        return self.consolidated_data.model_dump(mode="json")
+        return self.consolidated_data.model_dump(mode="json", exclude={"investment_report"})
