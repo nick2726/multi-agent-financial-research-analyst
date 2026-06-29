@@ -49,6 +49,11 @@ class ThesisWriterAgent:
         try:
             gemini = self._gemini or GeminiService()
             response = gemini.generate(prompt)
+            print("\n" + "=" * 80)
+            print("RAW GEMINI RESPONSE")
+            print("=" * 80)
+            print(response)
+            print("=" * 80 + "\n")
             report = self._parse_report(response)
             report.source = "gemini"
             return report
@@ -63,25 +68,42 @@ class ThesisWriterAgent:
             return self._build_fallback_report(thesis_input)
 
     def _parse_report(self, report_text: str) -> InvestmentReport:
-        """Parse a heading-based model response into the report schema."""
-        sections: dict[str, str] = {}
+        sections = {}
+
+        normalized = report_text.replace("**", "")
+
         for index, header in enumerate(REPORT_HEADERS):
-            pattern = re.compile(rf"(?:^|\n)\s*(?:#+\s*)?{re.escape(header)}\s*:?\s*", re.IGNORECASE)
-            match = pattern.search(report_text)
+
+            pattern = re.compile(
+                rf"(?:^|\n)\s*(?:#+\s*)?{re.escape(header)}\s*:?\s*",
+                re.IGNORECASE,
+            )
+
+            match = pattern.search(normalized)
+
             if match is None:
                 sections[header] = "Section not generated."
                 continue
 
-            end = len(report_text)
-            for next_header in REPORT_HEADERS[index + 1 :]:
+            end = len(normalized)
+
+            for next_header in REPORT_HEADERS[index + 1:]:
+
                 next_pattern = re.compile(
                     rf"(?:^|\n)\s*(?:#+\s*)?{re.escape(next_header)}\s*:?\s*",
                     re.IGNORECASE,
                 )
-                next_match = next_pattern.search(report_text, match.end())
-                if next_match is not None:
-                    end = min(end, next_match.start())
-            sections[header] = report_text[match.end() : end].strip() or "Section not generated."
+
+                next_match = next_pattern.search(normalized, match.end())
+
+                if next_match:
+                    end = next_match.start()
+                    break
+
+            sections[header] = (
+                normalized[match.end():end].strip()
+                or "Section not generated."
+            )
 
         return InvestmentReport(
             executive_summary=sections["Executive Summary"],
