@@ -109,10 +109,16 @@ def test_news_agent_uses_default_30_day_window() -> None:
     assert response.company_name == "TCS"
 
 
-def test_news_agent_propagates_gemini_failures() -> None:
-    """NewsAgent should not hide summarization failures."""
+def test_news_agent_falls_back_when_gemini_fails() -> None:
+    """NewsAgent should fall back to local summarization when Gemini fails."""
     news_tool = FakeNewsTool([_news_article()])
     summarizer = FakeSummarizer(summary=None)
 
-    with pytest.raises(GeminiSummarizationError):
-        NewsAgent(news_tool=news_tool, summarizer=summarizer).analyze_news("WIPRO")
+    response = NewsAgent(
+        news_tool=news_tool,
+        summarizer=summarizer,
+    ).analyze_news("WIPRO")
+
+    assert response.company_name == "WIPRO"
+    assert len(response.articles) == 1
+    assert response.summary is not None
