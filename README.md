@@ -2,16 +2,38 @@
 
 Production-minded capstone project for equity-research automation using specialist agents and a fault-tolerant coordinator.
 
-## Current Milestone Status
+# Current Output Status
 
-- Milestone 1: Environment setup - complete
-- Milestone 2: Financial Agent - complete
-- Milestone 3: News Agent - complete
-- Milestone 4: Filings Agent - implemented and ready for coordinator validation
-- Milestone 5: Peer Comparison Agent - complete
-- Milestone 6: Coordinator Agent - complete with partial-failure isolation
-- Milestone 7: Thesis Writer Agent - complete and integrated into coordinator
-- Milestone 8: ADK integration - started with wrapper architecture and session persistence
+### INVESTMENT THESIS REPORT 
+
+Executive Summary:
+Infosys Limited was analyzed using the available financial, news, filings, and peer-comparison context. The strongest observable positives are Revenue growth is positive at 0.04570213207449292. and Operating profitability is visible with operating margin of 0.20928.. The main cautions are Valuation needs scrutiny because the reported P/E ratio is 13.621074..
+
+Bull Case:
+- Revenue growth is positive at 0.04570213207449292.
+- Operating profitability is visible with operating margin of 0.20928.
+- Return on equity is reported at 0.31439, indicating shareholder-return efficiency.
+
+Bear Case:
+- Valuation needs scrutiny because the reported P/E ratio is 13.621074.
+
+Key Risks:
+- Market-data and news APIs can be incomplete or delayed.
+- The model uses supplied evidence only and does not replace analyst verification.
+- Macroeconomic, currency, regulatory, and sector-cycle risks may affect the outcome.
+
+Peer Positioning:
+Target: INFY.NS
+Peer universe: TCS.NS, WIPRO.NS, HCLTECH.NS, TECHM.NS, LTIMINDTREE.NS
+Comparable companies with data: 5
+Relative valuation should be interpreted with sector, scale, and profitability differences in mind.
+
+Investment Thesis:
+A constructive view is justified only if the company sustains growth, margins, and execution quality relative to peers. A neutral or cautious stance is more appropriate if valuation is demanding, key data is missing, or recent filings/news point to rising operational or regulatory risk.
+
+Conclusion:
+Overall, the thesis should be treated as research support rather than a buy/sell call. The next diligence step is to validate the agent output against the latest exchange filings, management commentary, and analyst consensus before making an investment decision.
+
 
 ## Architecture
 
