@@ -85,6 +85,7 @@ class ADKCoordinatorAgent:
             completed_agents=response.completed_agents,
             failed_agents=response.failed_agents,
             has_failures=response.has_failures,
+            response_snapshot=response.model_dump(mode="json"),
         )
         self._session_store.append_run(session.session_id, run_record)
 

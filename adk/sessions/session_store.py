@@ -20,6 +20,7 @@ class SessionRunRecord(BaseModel):
     completed_agents: list[str]
     failed_agents: list[str]
     has_failures: bool
+    response_snapshot: dict[str, Any] | None = None
 
 
 class SessionRecord(BaseModel):

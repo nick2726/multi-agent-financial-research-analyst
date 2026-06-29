@@ -4,8 +4,11 @@
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import sys
+from datetime import UTC, datetime
+from pathlib import Path
 
 from dotenv import load_dotenv
 
@@ -14,6 +17,7 @@ sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
 
 from adk.main import run_adk_research
 from agents.coordinator.coordinator_agent import CoordinatorAgent
+from observability.logging_config import configure_logging
 
 
 def print_section(title: str) -> None:
@@ -36,7 +40,23 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--skip-thesis", action="store_true", help="Skip thesis writer agent")
     parser.add_argument("--use-adk", action="store_true", help="Run via ADK wrapper pipeline")
     parser.add_argument("--session-id", type=str, default=None, help="Session id for ADK mode")
+    parser.add_argument(
+        "--save-output",
+        action="store_true",
+        help="Persist full response JSON to outputs/ for replay and evaluation",
+    )
     return parser.parse_args()
+
+
+def persist_output_json(response_payload: dict[str, object], ticker: str) -> Path:
+    """Persist one response payload for later evaluation and auditability."""
+    output_dir = Path("outputs")
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    timestamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
+    output_path = output_dir / f"{timestamp}_{ticker}.json"
+    output_path.write_text(json.dumps(response_payload, indent=2), encoding="utf-8")
+    return output_path
 
 
 def print_execution_summary(response, session_id: str | None = None) -> None:
@@ -203,6 +223,7 @@ def print_thesis(data) -> None:
 
 def main() -> None:
     """Execute CLI workflow."""
+    configure_logging("financial-research-cli")
     args = parse_args()
 
     load_dotenv()
@@ -259,6 +280,11 @@ def main() -> None:
     print_news(data)
     print_filings(data)
     print_thesis(data)
+
+    if args.save_output:
+        payload = response.model_dump(mode="json")
+        saved_path = persist_output_json(payload, ticker)
+        print(f"\nSaved response JSON: {saved_path}")
 
 
 if __name__ == "__main__":

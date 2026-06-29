@@ -26,6 +26,8 @@ dist/
 logs/
 .coverage
 htmlcov/
+outputs/
+adk/sessions/data/
 
 # IDE and OS files
 .idea/
