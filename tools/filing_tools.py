@@ -265,6 +265,42 @@ class PdfFilingTool:
         return matches[:5]
 
 
+class ExtractiveFilingSummarizer:
+    """Local filing summarizer used when Gemini is unavailable."""
+
+    def summarize(self, filing_path: Path, sections: Sequence[FilingSection]) -> FilingSummary:
+        """Summarize extracted filing sections without external model calls."""
+        if not sections:
+            raise FilingSummarizationError("At least one filing section is required.")
+        key_points = []
+        for section in sections[:5]:
+            sentence = self._first_material_sentence(section.content)
+            key_points.append(f"{section.name}: {sentence}")
+        return FilingSummary(
+            summary=f"Extracted {len(sections)} material sections from {filing_path.name} for analyst review.",
+            key_points=key_points,
+            limitations=["Generated with local extractive summarization; review the original filing before investment use."],
+        )
+
+    def summarize_comparison(self, comparison: FilingComparison) -> FilingSummary:
+        """Summarize detected year-over-year filing changes locally."""
+        key_points = [*comparison.major_changes[:3], *comparison.emerging_risks[:2], *comparison.strategic_initiatives[:2]]
+        if not key_points:
+            key_points = ["No major text-pattern changes were detected in the configured sections."]
+        return FilingSummary(
+            summary="Year-over-year filing comparison completed using deterministic pattern matching.",
+            key_points=key_points,
+            limitations=["Change detection is pattern-based and should be validated against the full filing."],
+        )
+
+    def _first_material_sentence(self, text: str) -> str:
+        sentences = re.split(r"(?<=[.!?])\s+", text.strip())
+        for sentence in sentences:
+            cleaned = sentence.strip()
+            if len(cleaned.split()) >= 8:
+                return cleaned[:350]
+        return text.strip()[:350]
+
 class GeminiFilingSummarizer:
     """Summarize filing sections and comparisons using Gemini."""
 
@@ -359,3 +395,4 @@ class GeminiFilingSummarizer:
 def analyze_filing(filing_path: str | Path) -> tuple[list[FilingSection], list[str]]:
     """Convenience function for extracting sections from a local PDF filing."""
     return PdfFilingTool().analyze_filing(filing_path)
+
