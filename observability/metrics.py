@@ -23,6 +23,7 @@ class InMemoryMetrics:
     """Simple metrics sink for counters and latencies."""
 
     def __init__(self) -> None:
+        self._started_at = time.time()
         self._counters: dict[str, int] = defaultdict(int)
         self._timers: dict[str, list[float]] = defaultdict(list)
 
@@ -48,6 +49,7 @@ class InMemoryMetrics:
                 "avg_ms": sum(values) / len(values),
                 "max_ms": max(values),
                 "min_ms": min(values),
+                "uptime_seconds": round(time.time() - self._started_at, 2),
             }
         return {
             "counters": dict(self._counters),

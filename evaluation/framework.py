@@ -76,6 +76,8 @@ class ResearchEvaluationFramework:
             notes.append("Thesis report is partially generated.")
 
         overall_score = round((0.4 * completeness_score) + (0.3 * reliability_score) + (0.3 * thesis_quality_score), 2)
+        notes.append(f"Completed agents: {len(completed_agents)}")
+        notes.append(f"Failed agents: {len(failed_agents)}")
         return EvaluationResult(
             completeness_score=completeness_score,
             reliability_score=reliability_score,
