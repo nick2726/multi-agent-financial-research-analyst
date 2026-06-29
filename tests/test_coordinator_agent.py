@@ -10,6 +10,7 @@ from agents.filings_agent.models import FilingAgentResponse, FilingComparison, F
 from agents.financial_agent.models import CompanyInfo, FinancialAnalysis, FinancialMetrics
 from agents.news_agent.models import NewsAgentResponse, NewsArticle, NewsSummary
 from agents.peer_agent.models import PeerComparisonResponse, PeerComparisonTable, PeerMetrics
+from agents.thesis_agent.models import InvestmentReport, ThesisInput
 
 
 class FakeFinancialAgent:
@@ -118,10 +119,31 @@ class FakePeerAgent:
         )
 
 
+class FakeThesisAgent:
+    """Thesis agent fake for coordinator tests."""
+
+    def __init__(self) -> None:
+        self.received_input: ThesisInput | None = None
+
+    def generate_report(self, thesis_input: ThesisInput) -> InvestmentReport:
+        """Return a deterministic investment report."""
+        self.received_input = thesis_input
+        return InvestmentReport(
+            executive_summary="Executive summary",
+            bull_case="Bull case",
+            bear_case="Bear case",
+            key_risks="Key risks",
+            peer_positioning="Peer positioning",
+            investment_thesis="Investment thesis",
+            conclusion="Conclusion",
+        )
+
+
 def _coordinator(
     financial_agent: FakeFinancialAgent | None = None,
     news_agent: FakeNewsAgent | None = None,
     peer_agent: FakePeerAgent | None = None,
+    thesis_agent: FakeThesisAgent | None = None,
 ) -> CoordinatorAgent:
     """Build a coordinator with fake specialist agents."""
     return CoordinatorAgent(
@@ -129,6 +151,7 @@ def _coordinator(
         news_agent=news_agent or FakeNewsAgent(),
         filings_agent=FakeFilingsAgent(),
         peer_agent=peer_agent or FakePeerAgent(),
+        thesis_agent=thesis_agent or FakeThesisAgent(),
     )
 
 
@@ -147,6 +170,7 @@ def test_coordinator_successful_orchestration() -> None:
     assert response.consolidated_data.filing_analysis is not None
     assert response.consolidated_data.filing_comparison is not None
     assert response.consolidated_data.peer_comparison is not None
+    assert response.consolidated_data.investment_report is not None
     assert response.failed_agents == []
     assert set(response.completed_agents) == {
         "financial_agent",
@@ -154,6 +178,7 @@ def test_coordinator_successful_orchestration() -> None:
         "filings_agent",
         "filings_comparison",
         "peer_agent",
+        "thesis_agent",
     }
 
 
@@ -164,6 +189,7 @@ def test_coordinator_continues_after_partial_agent_failures() -> None:
     assert response.consolidated_data.financial_analysis is not None
     assert response.consolidated_data.news_analysis is None
     assert response.consolidated_data.peer_comparison is not None
+    assert response.consolidated_data.investment_report is not None
     assert response.failed_agents == ["news_agent"]
     failed_metadata = next(item for item in response.execution_metadata if item.agent_name == "news_agent")
     assert failed_metadata.status == "failed"
@@ -201,10 +227,24 @@ def test_coordinator_can_skip_optional_agents() -> None:
         include_news=False,
         include_filings=False,
         include_peers=False,
+        include_thesis=False,
     )
 
     assert response.consolidated_data.financial_analysis is not None
     assert response.consolidated_data.news_analysis is None
     assert response.consolidated_data.filing_analysis is None
     assert response.consolidated_data.peer_comparison is None
+    assert response.consolidated_data.investment_report is None
     assert response.completed_agents == ["financial_agent"]
+
+
+def test_coordinator_passes_structured_input_to_thesis_agent() -> None:
+    """CoordinatorAgent should pass rendered specialist context to thesis."""
+    thesis_agent = FakeThesisAgent()
+
+    response = _coordinator(thesis_agent=thesis_agent).generate_report("INFY.NS", include_filings=False)
+
+    assert response.consolidated_data.investment_report is not None
+    assert thesis_agent.received_input is not None
+    assert thesis_agent.received_input.company_name == "Infosys Limited"
+    assert "Ticker: INFY.NS" in thesis_agent.received_input.financial_analysis
