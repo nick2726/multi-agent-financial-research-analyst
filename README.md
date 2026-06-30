@@ -198,3 +198,96 @@ Open:
 http://localhost:8080/docs
 
 If the Swagger UI loads successfully, the deployment is working.
+## Observability
+
+The application includes lightweight observability features to monitor service health, API performance, and application behavior during execution.
+
+### Logging
+
+Structured logging is configured through the centralized logging module.
+
+Features:
+- Configurable log levels using `LOG_LEVEL`
+- Configurable log format using `LOG_FORMAT`
+- Human-readable text logs
+- JSON formatted logs for machine-readable output
+- Consistent service identification across CLI, API, and Streamlit applications
+
+### Health Endpoint
+
+The API exposes a health check endpoint for monitoring service availability.
+
+```http
+GET /healthz
+```
+
+Example Response:
+
+```json
+{
+  "status": "ok",
+  "service": "multi-agent-financial-research-analyst"
+}
+```
+
+### Metrics Endpoint
+
+The API exposes runtime metrics through:
+
+```http
+GET /metrics
+```
+
+The endpoint reports:
+
+- Total research requests processed
+- Total request execution time
+- Average request latency
+- Maximum request latency
+- Minimum request latency
+
+Example Response:
+
+```json
+{
+  "counters": {
+    "api.research_requests_total": 1
+  },
+  "timers": {
+    "api.research_request_duration_ms": {
+      "count": 1,
+      "avg_ms": 6026.19,
+      "max_ms": 6026.19,
+      "min_ms": 6026.19
+    }
+  }
+}
+```
+
+### Runtime Monitoring
+
+The application records:
+
+- API request lifecycle
+- Agent execution logs
+- Research request duration
+- Application errors and exceptions
+- Peer comparison execution
+- Financial data retrieval events
+
+### Verification
+
+Observability can be verified using:
+
+```bash
+curl http://localhost:8080/healthz
+
+curl http://localhost:8080/metrics
+```
+
+Or by opening:
+
+- Health Check: `http://localhost:8080/healthz`
+- Metrics: `http://localhost:8080/metrics`
+- API Documentation: `http://localhost:8080/docs`
+
