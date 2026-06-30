@@ -291,3 +291,22 @@ Or by opening:
 - Metrics: `http://localhost:8080/metrics`
 - API Documentation: `http://localhost:8080/docs`
 
+
+## Dashboard Screenshots
+
+**1. News Analysis**
+<img width="1490" height="820" alt="Screenshot 2026-07-01 022218" src="https://github.com/user-attachments/assets/6e64be00-d87d-46ac-b218-c9852f019047" />
+
+
+**2. Peers Comparison**
+<img width="1506" height="587" alt="Screenshot 2026-07-01 022146" src="https://github.com/user-attachments/assets/d53ba31d-6df6-4649-bbbc-660671855e12" />
+
+
+**3. Financial Deep Dive**
+<img width="1476" height="811" alt="Screenshot 2026-07-01 022123" src="https://github.com/user-attachments/assets/fb69d728-4220-470b-8b32-a638f810948b" />
+
+
+**4. Company Overview & Metrics**
+<img width="1516" height="860" alt="Screenshot 2026-07-01 021310" src="https://github.com/user-attachments/assets/0732e1c7-6f87-43d7-9089-338e36cda0b5" />
+<img width="1465" height="785" alt="Screenshot 2026-07-01 021324" src="https://github.com/user-attachments/assets/aeec23bc-c525-4d4e-bf23-2352231a40db" />
+
