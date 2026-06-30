@@ -132,3 +132,69 @@ pytest tests/test_coordinator_agent.py tests/test_peer_tools.py tests/test_adk_c
 - Structured outputs via Pydantic models
 - Fault-tolerant coordinator execution
 - Backward-compatible migration path toward full ADK runtime
+## Docker Deployment
+
+### Prerequisites
+
+- Docker Desktop installed and running
+- Docker Compose (included with Docker Desktop)
+
+### Build the Docker Image
+
+```bash
+docker build -t multi-agent-financial-research-analyst .
+```
+
+### Run the Application
+
+```bash
+docker run -p 8080:8080 multi-agent-financial-research-analyst
+```
+
+The API will be available at:
+
+- **API Base URL:** http://localhost:8080
+- **Swagger Documentation:** http://localhost:8080/docs
+- **OpenAPI Specification:** http://localhost:8080/openapi.json
+
+### Run Using Docker Compose
+
+Build and start the application:
+
+```bash
+docker compose up --build
+```
+
+Run in detached mode:
+
+```bash
+docker compose up -d
+```
+
+Stop the application:
+
+```bash
+docker compose down
+```
+
+### Environment Variables
+
+Create a `.env` file from the example:
+
+```bash
+cp .env.example .env
+```
+
+Configure the required API keys inside `.env` if needed:
+
+- GOOGLE_API_KEY
+- GEMINI_API_KEY
+- NEWS_API_KEY
+
+### Verify Deployment
+
+Open:
+
+http://localhost:8080/docs
+
+If the Swagger UI loads successfully, the deployment is working.
